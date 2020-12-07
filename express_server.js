@@ -7,6 +7,12 @@ app.set('view engine', 'ejs');
 
 // use res.render to load up an ejs view file
 
+const urlDatabase = {
+    "b2xVn2": "http://www.lighthouselabs.ca",
+    "9sm5xK": "http://www.google.com"
+  };
+  
+
 // index page
 app.get('/', function(req, res) {
     var mascots = [
@@ -31,6 +37,12 @@ app.get("/urls", (req, res) => {
     const templateVars = { urls: urlDatabase };
     res.render("urls_index", templateVars);
   });
+
+  app.get("/urls/:shortURL", (req, res) => {
+    const templateVars = { shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL]};
+    res.render("urls_show", templateVars);
+  });
+
 
 app.listen(8080);
 console.log('8080 is the magic port');
