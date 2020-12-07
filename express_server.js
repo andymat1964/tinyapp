@@ -27,5 +27,10 @@ app.get('/about', function(req, res) {
     res.render('pages/about');
 });
 
+app.get("/urls", (req, res) => {
+    const templateVars = { urls: urlDatabase };
+    res.render("urls_index", templateVars);
+  });
+
 app.listen(8080);
 console.log('8080 is the magic port');
