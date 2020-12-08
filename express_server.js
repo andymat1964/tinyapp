@@ -64,5 +64,12 @@ app.get("/urls", (req, res) => {
     res.redirect(longURL);
   });
 
+  app.post("/urls/:shortURL/delete", (req, res) => {
+    const key = req.params.shortURL
+    console.log(key);
+    delete urlDatabase[key];
+    res.redirect("/urls");
+  });
+
 app.listen(8080);
 console.log('8080 is the magic port');
