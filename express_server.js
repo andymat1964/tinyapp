@@ -29,7 +29,7 @@ const urlDatabase = {
     return Math.random().toString(36).substring(2,8);
   };
 
-  function emailLookup(email) {
+  function findUserByEmail(email) {
     for (let user in users) {
       if (email === users[user].email) {
         return users[user];
@@ -72,16 +72,14 @@ app.get("/urls", (req, res) => {
   });
 
   app.get("/urls/new", (req, res) => {
-    const user_id = req.cookies["user_id"];
-    console.log(user_id);
-    let email;
-    if (user_id !== undefined)  {
-      if (users[user_id]) {
-        email = users[user_id].email;
-      }
+    const user = req.cookies["user_id"];
+    // console.log(user);
+    if (!user) {
+      res.redirect('/login');
+    } else {
+      const templateVars = { email: users[user].email };
+      res.render("urls_new", templateVars);
     }
-    const templateVars = { urls: urlDatabase, email: email };
-    res.render("urls_new", templateVars);
   });
 
   app.get("/urls/:shortURL", (req, res) => {
@@ -126,7 +124,7 @@ app.get("/urls", (req, res) => {
   app.post('/login', (req, res) => {
     const email = req.body.email;
     const password = req.body.password;
-    const user = emailLookup(email);
+    const user = findUserByEmail(email);
     console.log(user);
     if (!user) {
       res.status(403);
@@ -153,7 +151,7 @@ app.get("/urls", (req, res) => {
     const user_id = generateRandomString();
     const email = req.body.email;
     const password = req.body.password;
-    const user = emailLookup(email);
+    const user = findUserByEmail(email);
     if (!email || password === "") {
       res.status(403);
       res.send('Error: 403');
@@ -163,6 +161,12 @@ app.get("/urls", (req, res) => {
       res.redirect("/urls");
     }
   });
+
+  app.get('u/:id', (req, res) => {
+
+
+
+  })
 
 
 
