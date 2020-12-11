@@ -3,10 +3,18 @@ var express = require('express');
 var app = express();
 const bodyParser = require("body-parser");
 app.use(bodyParser.urlencoded({extended: true}));
-const cookieParser = require('cookie-parser');
-app.use(cookieParser());
+const cookieSession = require('cookie-session');
+
 const bcrypt = require('bcrypt');
 const saltRounds = 10;
+
+app.use(cookieSession({
+  name: 'session',
+  keys: ['b6d0e7eb-8c4b-4ae4-8460-fd3a08733dcb', '1fb2d767-ffbf-41a6-98dd-86ac2da9392e']
+}));
+
+const findUserByEmail = require('./helper');
+
 
 // set the view engine to ejs
 
@@ -17,7 +25,7 @@ app.set('view engine', 'ejs');
 
   const urlDatabase = {
     b6UTxQ: { longURL: "https://www.tsn.ca", userID: "aJ48lW" },
-    i3BoGr: { longURL: "https://www.google.ca", userID: "1" }
+    i3BoGr: { longURL: "https://www.google.ca", userID: "12s1vd" }
   };
 
 
@@ -34,14 +42,6 @@ app.set('view engine', 'ejs');
     return Math.random().toString(36).substring(2,8);
   };
 
-  function findUserByEmail(email) {
-    for (let user in users) {
-      if (email === users[user].email) {
-        return users[user];
-      }
-    }
-    return null;
-  };
 
 // index page
 app.get('/', function(req, res) {
@@ -58,10 +58,12 @@ app.get('/', function(req, res) {
     });
 });
 
+
 // about page
 app.get('/about', function(req, res) {
     res.render('pages/about');
 });
+
 
 const urlsForUser = (user) => {
   let filteredUrls = {};
@@ -74,7 +76,7 @@ const urlsForUser = (user) => {
 };
 
 app.get("/urls", (req, res) => {
-  const userID = req.cookies["user_id"]
+  const userID = req.session.user_id;
   if (!userID) {
     res.send('Please Register or Login');
   } else {
@@ -85,7 +87,7 @@ app.get("/urls", (req, res) => {
 });
 
   app.get("/urls/new", (req, res) => {
-    const user = req.cookies["user_id"];
+    const user = req.session.user_id;
     if (!user) {
       res.redirect('/login');
     } else {
@@ -95,7 +97,7 @@ app.get("/urls", (req, res) => {
   });
 
   app.get("/urls/:shortURL", (req, res) => {
-    const user = req.cookies["user_id"];
+    const user = req.session.user_id;
     if (!user) {
       res.send('Please Register or Login');
     }  if (user) {
@@ -109,7 +111,7 @@ app.get("/urls", (req, res) => {
   });
 
   app.post("/urls", (req, res) => {
-    const user = req.cookies["user_id"];
+    const user = req.session.user_id;
     const shortURL = generateRandomString();
     const longURL = req.body.longURL;
     urlDatabase[shortURL] = { longURL: longURL, userID: user };
@@ -118,7 +120,7 @@ app.get("/urls", (req, res) => {
 
 
   app.post("/urls/:shortURL/delete", (req, res) => {
-    const user = req.cookies["user_id"];
+    const user = req.session.user_id;
     if (!user) {
       res.send('Please Register or Login');
     } else {
@@ -133,7 +135,7 @@ app.get("/urls", (req, res) => {
   });
 
   app.post("/urls/:shortURL/update", (req, res) => {
-    const user = req.cookies["user_id"];
+    const user = req.session.user_id;
     if (!user) {
       res.send('Please Register or Login');
     } else {
@@ -156,7 +158,7 @@ app.get("/urls", (req, res) => {
   app.post('/login', (req, res) => {
     const email = req.body.email;
     const password = req.body.password;
-    const user = findUserByEmail(email);
+    const user = findUserByEmail(email, users);
     if (!user) {
       res.status(403);
       return res.send('Error: 403');  
@@ -165,12 +167,12 @@ app.get("/urls", (req, res) => {
       res.status(403);
       return res.send('Error: 403'); 
     }
-    res.cookie("user_id", user.id);
+    req.session.user_id = user.id;
     res.redirect("/urls");
   });
 
   app.post("/logout", (req, res) => {
-    res.clearCookie("user_id");
+    req.session = null;
     res.redirect("/urls");
   });
 
@@ -183,13 +185,13 @@ app.get("/urls", (req, res) => {
     const email = req.body.email;
     const password = req.body.password;
     const hashedPassword = bcrypt.hashSync(password, 10);
-    const user = findUserByEmail(email);
+    const user = findUserByEmail(email, users);
     if (!email || password === "") {
       res.status(403);
       res.send('Error: 403');
     } else {
       users[user_id] = { id: user_id, email: email, password: hashedPassword };
-      res.cookie("user_id", user_id);
+      req.session.user_id = user_id;
       res.redirect("/urls");
     }
   });
