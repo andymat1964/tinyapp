@@ -5,6 +5,8 @@ const bodyParser = require("body-parser");
 app.use(bodyParser.urlencoded({extended: true}));
 const cookieParser = require('cookie-parser');
 app.use(cookieParser());
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
 
 // set the view engine to ejs
 
@@ -20,10 +22,10 @@ app.set('view engine', 'ejs');
 
 
   const users = { 
-    "1": {
-      id: "1", 
+    "12s1vd": {
+      id: "12s1vd", 
       email: "user@example.com", 
-      password: "test"
+      password: '$2b$10$zp8yf/f8NiVRxNzxzHHgFOzKKkuNFeeUkdnWfQJRtsiJJ0bRx1Bjy'
     },
   };
 
@@ -159,7 +161,7 @@ app.get("/urls", (req, res) => {
       res.status(403);
       return res.send('Error: 403');  
     } 
-    if (password !== user.password) {
+    if (bcrypt.compareSync("password", user.password)) {
       res.status(403);
       return res.send('Error: 403'); 
     }
@@ -180,12 +182,13 @@ app.get("/urls", (req, res) => {
     const user_id = generateRandomString();
     const email = req.body.email;
     const password = req.body.password;
+    const hashedPassword = bcrypt.hashSync(password, 10);
     const user = findUserByEmail(email);
     if (!email || password === "") {
       res.status(403);
       res.send('Error: 403');
     } else {
-      users[user_id] = { id: user_id, email: email, password: password };
+      users[user_id] = { id: user_id, email: email, password: hashedPassword };
       res.cookie("user_id", user_id);
       res.redirect("/urls");
     }
