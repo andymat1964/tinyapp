@@ -7,17 +7,20 @@ const cookieParser = require('cookie-parser');
 app.use(cookieParser());
 
 // set the view engine to ejs
+
 app.set('view engine', 'ejs');
 
 // use res.render to load up an ejs view file
 
-const urlDatabase = {
-    "b2xVn2": "http://www.lighthouselabs.ca",
-    "9sm5xK": "http://www.google.com"
+
+  const urlDatabase = {
+    b6UTxQ: { longURL: "https://www.tsn.ca", userID: "aJ48lW" },
+    i3BoGr: { longURL: "https://www.google.ca", userID: "1" }
   };
 
+
   const users = { 
-    user_id: {
+    "1": {
       id: "1", 
       email: "user@example.com", 
       password: "test"
@@ -58,22 +61,29 @@ app.get('/about', function(req, res) {
     res.render('pages/about');
 });
 
-app.get("/urls", (req, res) => {
-    const user_id = req.cookies["user_id"];
-    // console.log("userid in /urls:", user_id);
-    let email;
-    if (user_id !== undefined)  {
-      if (users[user_id]) {
-        email = users[user_id].email;
-      }
+const urlsForUser = (user) => {
+  let filteredUrls = {};
+  for (let url in urlDatabase) {
+    if (urlDatabase[url].userID === user) {
+      filteredUrls[url] = { longURL: urlDatabase[url].longURL, userID: user }
     }
-    const templateVars = { urls: urlDatabase, email: email };
-    res.render("urls_index", templateVars);
-  });
+  }
+  return filteredUrls;
+};
+
+app.get("/urls", (req, res) => {
+  const userID = req.cookies["user_id"]
+  if (!userID) {
+    res.send('Please Register or Login');
+  } else {
+     const userURLS = urlsForUser(userID);
+      const templateVars = { urls: userURLS, email: users[userID].email };
+      res.render("urls_index", templateVars);
+  }
+});
 
   app.get("/urls/new", (req, res) => {
     const user = req.cookies["user_id"];
-    // console.log(user);
     if (!user) {
       res.redirect('/login');
     } else {
@@ -83,38 +93,58 @@ app.get("/urls", (req, res) => {
   });
 
   app.get("/urls/:shortURL", (req, res) => {
-    const user_id = req.cookies["user_id"];
-    let email;
-    if (user_id !== undefined)  {
-      if (users[user_id]) {
-        email = users[user_id].email;
-      }
+    const user = req.cookies["user_id"];
+    if (!user) {
+      res.send('Please Register or Login');
+    }  if (user) {
+      const templateVars = { shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL].longURL, email: users[user].email};
+      res.render("urls_show", templateVars);
     }
-    const templateVars = { shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL], email: email};
-    res.render("urls_show", templateVars);
   });
-
+  
+  app.get('/u/:id', (req, res) => {
+    res.redirect(`${urlDatabase[req.params.id].longURL}`);
+  });
 
   app.post("/urls", (req, res) => {
-    res.send("/urls/:shortURL");
+    const user = req.cookies["user_id"];
+    const shortURL = generateRandomString();
+    const longURL = req.body.longURL;
+    urlDatabase[shortURL] = { longURL: longURL, userID: user };
+    res.redirect("/urls");
   });
 
-  app.get("/u/:shortURL", (req, res) => {
-    const longURL = urlDatabase[req.params.shortURL];
-    res.redirect(longURL);
-  });
 
   app.post("/urls/:shortURL/delete", (req, res) => {
-    const key = req.params.shortURL;
-    delete urlDatabase[key];
-    res.redirect("/urls");
+    const user = req.cookies["user_id"];
+    if (!user) {
+      res.send('Please Register or Login');
+    } else {
+      const key = req.params.shortURL;
+      if (user === urlDatabase[key].userID) {
+        delete urlDatabase[key];
+        res.redirect("/urls");
+      } else {
+        res.send('Unauthorized access');
+      }
+    }
   });
 
   app.post("/urls/:shortURL/update", (req, res) => {
-    const key = req.params.shortURL;
-    const longURL = req.body.longURL;
-    urlDatabase[key] = longURL;
-    res.redirect("/urls");
+    const user = req.cookies["user_id"];
+    if (!user) {
+      res.send('Please Register or Login');
+    } else {
+      const key = req.params.shortURL;
+      if (user === urlDatabase[key].userID) {
+        const key = req.params.shortURL;
+        const longURL = req.body.longURL;
+        urlDatabase[key].longURL = longURL;
+        res.redirect("/urls");
+      } else {
+        res.send('Unauthorized access');
+      }
+    }
   });
 
   app.get('/login', (req, res) => {
@@ -125,7 +155,6 @@ app.get("/urls", (req, res) => {
     const email = req.body.email;
     const password = req.body.password;
     const user = findUserByEmail(email);
-    console.log(user);
     if (!user) {
       res.status(403);
       return res.send('Error: 403');  
@@ -161,14 +190,6 @@ app.get("/urls", (req, res) => {
       res.redirect("/urls");
     }
   });
-
-  app.get('u/:id', (req, res) => {
-
-
-
-  })
-
-
 
 
 app.listen(8080);
