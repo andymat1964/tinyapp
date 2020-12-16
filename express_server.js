@@ -2,18 +2,16 @@
 var express = require('express');
 var app = express();
 const bodyParser = require("body-parser");
-app.use(bodyParser.urlencoded({extended: true}));
 const cookieSession = require('cookie-session');
-
 const bcrypt = require('bcrypt');
 const saltRounds = 10;
+const { findUserByEmail, urlsForUser, generateRandomString } = require('./helper');
+app.use(bodyParser.urlencoded({extended: true}));
 
 app.use(cookieSession({
   name: 'session',
   keys: ['b6d0e7eb-8c4b-4ae4-8460-fd3a08733dcb', '1fb2d767-ffbf-41a6-98dd-86ac2da9392e']
 }));
-
-const findUserByEmail = require('./helper');
 
 
 // set the view engine to ejs
@@ -37,55 +35,45 @@ app.set('view engine', 'ejs');
     },
   };
 
-  
-  function generateRandomString() {
-    return Math.random().toString(36).substring(2,8);
-  };
 
 
-// index page
+// Displays the index page
 app.get('/', function(req, res) {
-    var mascots = [
-        { name: 'Sammy', organization: "DigitalOcean", birth_year: 2012},
-        { name: 'Tux', organization: "Linux", birth_year: 1996},
-        { name: 'Moby Dock', organization: "Docker", birth_year: 2013}
-    ];
-    var tagline = "No programming concept is complete without a cute animal mascot.";
-
-    res.render('pages/index', {
-        mascots: mascots,
-        tagline: tagline
-    });
+    const userID = req.session.user_id;
+    const user = users[userID];
+    const urls = urlsForUser(userID, urlDatabase);
+    if (!user) {
+      res.redirect("/login");
+      return;
+    }
+    // const templateVars = {
+    //   urls,
+    //   email: user.email
+    // }
+      // res.render("urls_index", templateVars);
+      res.redirect("/urls");
 });
 
 
-// about page
+// Displays the about page
 app.get('/about', function(req, res) {
     res.render('pages/about');
 });
 
 
-const urlsForUser = (user) => {
-  let filteredUrls = {};
-  for (let url in urlDatabase) {
-    if (urlDatabase[url].userID === user) {
-      filteredUrls[url] = { longURL: urlDatabase[url].longURL, userID: user }
-    }
-  }
-  return filteredUrls;
-};
-
+// show the user's URL's
 app.get("/urls", (req, res) => {
   const userID = req.session.user_id;
   if (!userID) {
     res.send('Please Register or Login');
   } else {
-     const userURLS = urlsForUser(userID);
+     const userURLS = urlsForUser(userID, urlDatabase);
       const templateVars = { urls: userURLS, email: users[userID].email };
       res.render("urls_index", templateVars);
   }
 });
 
+// Displays the create new URL form
   app.get("/urls/new", (req, res) => {
     const user = req.session.user_id;
     if (!user) {
@@ -96,29 +84,49 @@ app.get("/urls", (req, res) => {
     }
   });
 
+// Displays the user's URLs
   app.get("/urls/:shortURL", (req, res) => {
-    const user = req.session.user_id;
-    if (!user) {
-      res.send('Please Register or Login');
-    }  if (user) {
-      const templateVars = { shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL].longURL, email: users[user].email};
-      res.render("urls_show", templateVars);
+    const userID = req.session.user_id;
+    const shortURL = req.params.shortURL;
+    const url = urlDatabase[shortURL];
+    if (!userID) {
+      res.status(403);
+      return res.send('Error 403: Please Register or Login');
+    }  
+    if (userID !== url.userID) {
+      res.status(403);
+      res.send("This URL does not belong to you");
+      return;
     }
-  });
-  
-  app.get('/u/:id', (req, res) => {
-    res.redirect(`${urlDatabase[req.params.id].longURL}`);
+    const templateVars = { shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL].longURL, email: users[userID].email};
+    res.render("urls_show", templateVars);
+    
   });
 
+  // Displays the longURL page
+  app.get('/u/:shortURL', (req, res) => {
+    const shortURL = req.params.shortURL;
+    if (!urlDatabase[shortURL]) {
+      res.status(404);
+      res.send("This URL does not exist")
+      return;
+    }
+    const longURL = urlDatabase[shortURL].longURL;
+    res.redirect(`${longURL}`);
+  });
+
+
+// Creates a new shortURL
   app.post("/urls", (req, res) => {
     const user = req.session.user_id;
     const shortURL = generateRandomString();
     const longURL = req.body.longURL;
     urlDatabase[shortURL] = { longURL: longURL, userID: user };
-    res.redirect("/urls");
+    res.redirect(`/urls/${shortURL}`);
   });
 
 
+// Deletes a user's URL
   app.post("/urls/:shortURL/delete", (req, res) => {
     const user = req.session.user_id;
     if (!user) {
@@ -134,6 +142,7 @@ app.get("/urls", (req, res) => {
     }
   });
 
+// Updates a user's URL, then redirects to the URL's page.
   app.post("/urls/:shortURL/update", (req, res) => {
     const user = req.session.user_id;
     if (!user) {
@@ -151,15 +160,23 @@ app.get("/urls", (req, res) => {
     }
   });
 
+// Displays the login page
   app.get('/login', (req, res) => {
+    const userID = req.session.user_id;
+    if (userID) {
+      res.redirect("/urls");
+      return;
+    }
     res.render("login")      
   });
 
+
+// Logs in the user, if the email address and password match, then redirects to the user's URL's page
   app.post('/login', (req, res) => {
     const email = req.body.email;
     const password = req.body.password;
     const user = findUserByEmail(email, users);
-    if (!user) {
+    if (!user || password === "") {
       res.status(403);
       return res.send('Error: 403');  
     } 
@@ -171,15 +188,26 @@ app.get("/urls", (req, res) => {
     res.redirect("/urls");
   });
 
+
+// Logs out the current user.
   app.post("/logout", (req, res) => {
     req.session = null;
     res.redirect("/urls");
   });
 
+
+// Displays the register page for new users.
   app.get('/register', (req, res) => {
+    const userID = req.session.user_id;
+    if (userID) {
+      res.redirect("/urls");
+      return;
+    }
     res.render("register")      
   });
 
+
+// Registers a new user and redirects to the URL page.
   app.post('/register', (req, res) => {
     const user_id = generateRandomString();
     const email = req.body.email;
@@ -195,6 +223,7 @@ app.get("/urls", (req, res) => {
       res.redirect("/urls");
     }
   });
+
 
 
 app.listen(8080);
