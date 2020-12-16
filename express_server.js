@@ -18,22 +18,6 @@ app.use(cookieSession({
 
 app.set('view engine', 'ejs');
 
-// use res.render to load up an ejs view file
-
-
-  const urlDatabase = {
-    b6UTxQ: { longURL: "https://www.tsn.ca", userID: "aJ48lW" },
-    i3BoGr: { longURL: "https://www.google.ca", userID: "12s1vd" }
-  };
-
-
-  const users = { 
-    "12s1vd": {
-      id: "12s1vd", 
-      email: "user@example.com", 
-      password: '$2b$10$zp8yf/f8NiVRxNzxzHHgFOzKKkuNFeeUkdnWfQJRtsiJJ0bRx1Bjy'
-    },
-  };
 
 
 
